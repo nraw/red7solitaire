@@ -1,0 +1,16 @@
+{
+  "name": "Red7 Solitaire",
+  "short_name": "Red7",
+  "description": "A solitaire card game based on Red7",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#e63946",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

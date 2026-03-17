@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<meta name="theme-color" content="#e63946">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<link rel="manifest" href="manifest.json">
+	<link rel="icon" href="icon.svg" type="image/svg+xml">
+	<title>Red7 Solitaire</title>
+	<style>
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		:root {
+			--red: #e63946;
+			--orange: #f4a261;
+			--yellow: #e9c46a;
+			--green: #2a9d8f;
+			--blue: #457b9d;
+			--indigo: #6a4c93;
+			--purple: #9d4edd;
+			--bg: #1a1a2e;
+			--surface: #16213e;
+			--text: #eee;
+			--card-w: 56px;
+			--card-h: 80px;
+			--col-gap: 6px;
+			--card-overlap: 20px;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: var(--bg);
+			color: var(--text);
+			min-height: 100dvh;
+			overflow-x: hidden;
+			-webkit-tap-highlight-color: transparent;
+			user-select: none;
+		}
+
+		header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 8px 12px;
+			background: var(--surface);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		}
+
+		.header-title {
+			font-size: 15px;
+			font-weight: 800;
+			color: var(--red);
+			letter-spacing: 0.3px;
+			white-space: nowrap;
+		}
+
+		.stats {
+			display: flex;
+			gap: 12px;
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.stats span {
+			opacity: 0.85;
+		}
+
+		.stats strong {
+			color: #fff;
+		}
+
+		.actions {
+			display: flex;
+			gap: 8px;
+		}
+
+		.actions button {
+			background: rgba(255, 255, 255, 0.1);
+			color: #fff;
+			border: none;
+			border-radius: 8px;
+			padding: 6px 12px;
+			font-size: 13px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background 0.15s;
+		}
+
+		.actions button:hover {
+			background: rgba(255, 255, 255, 0.2);
+		}
+
+		.actions button:disabled {
+			opacity: 0.3;
+			cursor: default;
+		}
+
+		#columns-area {
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			padding: 12px 8px;
+			scrollbar-width: none;
+		}
+
+		#columns-area::-webkit-scrollbar {
+			display: none;
+		}
+
+		#columns {
+			display: flex;
+			gap: var(--col-gap);
+			justify-content: center;
+			min-width: min-content;
+		}
+
+		.column {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			min-width: var(--card-w);
+		}
+
+		.column-label {
+			font-size: 11px;
+			opacity: 0.5;
+			margin-bottom: 4px;
+		}
+
+		.card-stack {
+			position: relative;
+			width: var(--card-w);
+		}
+
+		.card {
+			position: absolute;
+			width: var(--card-w);
+			height: var(--card-h);
+			border-radius: 8px;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			justify-content: flex-start;
+			padding: 3px 0 0 6px;
+			font-weight: 800;
+			font-size: 15px;
+			cursor: default;
+			transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+			border: 2px solid rgba(255, 255, 255, 0.15);
+			color: #fff;
+			text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+		}
+
+		.card .card-value {
+			font-size: 18px;
+			line-height: 1;
+		}
+
+		.card .color-label {
+			font-size: 7px;
+			font-weight: 700;
+			opacity: 0.9;
+			letter-spacing: 0.3px;
+			text-transform: uppercase;
+		}
+
+		/* Bottom card in stack gets full centered display */
+		.card.bottom-card {
+			align-items: center;
+			justify-content: center;
+			padding: 0;
+		}
+
+		.card.bottom-card .card-value {
+			font-size: 22px;
+		}
+
+		.card.bottom-card .color-label {
+			font-size: 9px;
+		}
+
+		.card.playable {
+			cursor: pointer;
+			box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.5);
+			border-color: rgba(255, 255, 255, 0.7);
+			animation: pulse 1.5s ease-in-out infinite;
+		}
+
+		.card.playable:active {
+			transform: scale(0.95);
+		}
+
+		@keyframes pulse {
+
+			0%,
+			100% {
+				box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.5);
+			}
+
+			50% {
+				box-shadow: 0 0 20px 6px rgba(255, 255, 255, 0.7);
+			}
+		}
+
+		.card.playing {
+			transform: scale(1.1);
+			opacity: 0;
+			transition: transform 0.4s, opacity 0.4s;
+		}
+
+		.constrained {
+			max-width: calc(7 * var(--card-w) + 6 * var(--col-gap) + 24px);
+			margin-left: auto;
+			margin-right: auto;
+			width: 100%;
+		}
+
+		#rule-banner {
+			text-align: center;
+			padding: 10px 16px;
+			font-size: 14px;
+			font-weight: 700;
+			letter-spacing: 0.5px;
+			transition: background 0.3s;
+			text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+			border-radius: 8px 8px 0 0;
+		}
+
+		#canvas-area {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			padding: 12px;
+			gap: 8px;
+		}
+
+		#canvas-area .label {
+			font-size: 12px;
+			opacity: 0.5;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+		}
+
+		#canvas-card {
+			width: 72px;
+			height: 100px;
+			border-radius: 10px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			font-weight: 800;
+			font-size: 30px;
+			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+			border: 2px solid rgba(255, 255, 255, 0.2);
+			color: #fff;
+			text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+			transition: background 0.3s, transform 0.3s;
+		}
+
+		#canvas-card .color-label {
+			font-size: 10px;
+			font-weight: 600;
+			opacity: 0.85;
+			letter-spacing: 0.5px;
+			text-transform: uppercase;
+		}
+
+		footer {
+			text-align: center;
+			padding: 16px 12px;
+			font-size: 12px;
+			opacity: 0.4;
+			line-height: 1.6;
+		}
+
+		footer a {
+			color: var(--text);
+			text-decoration: underline;
+		}
+
+		/* --- Settings Panel --- */
+		#settings-panel {
+			max-height: 0;
+			overflow: hidden;
+			transition: max-height 0.25s ease;
+			background: var(--surface);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+		}
+
+		#settings-panel.open {
+			max-height: 200px;
+		}
+
+		#settings-panel label {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 10px 16px;
+			font-size: 14px;
+			cursor: pointer;
+		}
+
+		#settings-panel input[type="checkbox"] {
+			width: 18px;
+			height: 18px;
+			accent-color: var(--red);
+			cursor: pointer;
+		}
+
+		/* --- Player Aide Drawer --- */
+		#aide-toggle {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			width: 100%;
+			padding: 10px;
+			background: var(--surface);
+			border: none;
+			border-top: 1px solid rgba(255, 255, 255, 0.08);
+			color: rgba(255, 255, 255, 0.6);
+			font-size: 13px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: color 0.15s;
+		}
+
+		#aide-toggle:hover {
+			color: rgba(255, 255, 255, 0.85);
+		}
+
+		#aide-toggle .arrow {
+			display: inline-block;
+			transition: transform 0.25s;
+			font-size: 11px;
+		}
+
+		#aide-toggle.open .arrow {
+			transform: rotate(180deg);
+		}
+
+		#aide-drawer {
+			max-height: 0;
+			overflow: hidden;
+			transition: max-height 0.3s ease;
+			background: var(--surface);
+		}
+
+		#aide-drawer.open {
+			max-height: 500px;
+		}
+
+		#aide-content {
+			padding: 8px 16px 16px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+		}
+
+		.aide-rule {
+			display: flex;
+			align-items: baseline;
+			gap: 8px;
+			padding: 6px 0;
+			font-size: 13px;
+			line-height: 1.4;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+			width: 100%;
+			max-width: 360px;
+		}
+
+		.aide-rule:last-child {
+			border-bottom: none;
+		}
+
+		.aide-color {
+			font-weight: 800;
+			font-size: 12px;
+			min-width: 58px;
+			text-transform: uppercase;
+			letter-spacing: 0.3px;
+			flex-shrink: 0;
+			text-align: right;
+		}
+
+		.aide-desc {
+			opacity: 0.75;
+			font-size: 12px;
+			text-align: left;
+		}
+
+		/* --- Game Over Overlay --- */
+		#game-over-banner {
+			display: none;
+			align-items: center;
+			justify-content: center;
+			gap: 16px;
+			padding: 12px 16px;
+			background: var(--surface);
+			border-top: 2px solid var(--red);
+		}
+
+		#game-over-banner.show {
+			display: flex;
+			flex-wrap: wrap;
+		}
+
+		#game-over-banner .go-stats {
+			font-size: 15px;
+			font-weight: 700;
+		}
+
+		#game-over-banner .go-label {
+			opacity: 0.6;
+			font-weight: 400;
+		}
+
+		#game-over-banner button {
+			background: var(--red);
+			color: #fff;
+			border: none;
+			border-radius: 8px;
+			padding: 8px 20px;
+			font-size: 14px;
+			font-weight: 700;
+			cursor: pointer;
+		}
+
+		@media (min-width: 500px) {
+			:root {
+				--card-w: 68px;
+				--card-h: 96px;
+				--col-gap: 8px;
+				--card-overlap: 24px;
+			}
+
+			.card {
+				font-size: 17px;
+				border-radius: 10px;
+			}
+
+			.card .card-value {
+				font-size: 20px;
+			}
+
+			.card.bottom-card .card-value {
+				font-size: 26px;
+			}
+
+			.card.bottom-card .color-label {
+				font-size: 10px;
+			}
+		}
+
+		@media (min-width: 768px) {
+			:root {
+				--card-w: 80px;
+				--card-h: 112px;
+				--col-gap: 12px;
+				--card-overlap: 28px;
+			}
+
+			.card {
+				border-radius: 12px;
+				padding: 5px 0 0 8px;
+			}
+
+			.card .card-value {
+				font-size: 22px;
+			}
+
+			.card .color-label {
+				font-size: 8px;
+			}
+
+			.card.bottom-card .card-value {
+				font-size: 30px;
+			}
+
+			.card.bottom-card .color-label {
+				font-size: 11px;
+			}
+
+			#rule-banner {
+				font-size: 16px;
+				padding: 12px 20px;
+			}
+		}
+	</style>
+</head>
+
+<body>
+
+	<header class="constrained">
+		<div class="header-title">Red7 Solitaire</div>
+		<div class="stats">
+			<span>Score: <strong id="score">0</strong></span>
+			<span>Left: <strong id="cards-left">49</strong></span>
+		</div>
+		<div class="actions">
+			<button id="btn-undo" disabled>Undo</button>
+			<button id="btn-new">New</button>
+			<button id="btn-settings" aria-label="Settings">&#9881;</button>
+		</div>
+	</header>
+
+	<div id="settings-panel" class="constrained">
+		<label>
+			Highlight playable cards
+			<input type="checkbox" id="chk-highlights" checked>
+		</label>
+		<label>
+			Auto-play when single option
+			<input type="checkbox" id="chk-autoplay-single">
+		</label>
+	</div>
+
+	<div id="columns-area">
+		<div id="columns"></div>
+	</div>
+
+	<div id="bottom-section" class="constrained">
+		<div id="rule-banner">RED: Highest card wins</div>
+
+		<div id="canvas-area">
+			<div class="label">Canvas</div>
+			<div id="canvas-card"></div>
+		</div>
+
+		<button id="aide-toggle">
+			Player Aide <span class="arrow">&#9660;</span>
+		</button>
+		<div id="aide-drawer">
+			<div id="aide-content">
+				<div class="aide-rule">
+					<span class="aide-color" style="color:var(--red)">Red</span>
+					<span class="aide-desc">Highest card wins (auto-played)</span>
+				</div>
+				<div class="aide-rule">
+					<span class="aide-color" style="color:var(--orange)">Orange</span>
+					<span class="aide-desc">Same value as the canvas card</span>
+				</div>
+				<div class="aide-rule">
+					<span class="aide-color" style="color:var(--yellow)">Yellow</span>
+					<span class="aide-desc">Color shared with at least one other available card</span>
+				</div>
+				<div class="aide-rule">
+					<span class="aide-color" style="color:var(--green)">Green</span>
+					<span class="aide-desc">Even values only (2, 4, 6)</span>
+				</div>
+				<div class="aide-rule">
+					<span class="aide-color" style="color:var(--blue)">Blue</span>
+					<span class="aide-desc">Unique color (no other available card shares it)</span>
+				</div>
+				<div class="aide-rule">
+					<span class="aide-color" style="color:var(--indigo)">Indigo</span>
+					<span class="aide-desc">Value within &plusmn;1 of the canvas card</span>
+				</div>
+				<div class="aide-rule">
+					<span class="aide-color" style="color:var(--purple)">Purple</span>
+					<span class="aide-desc">Low values only (1, 2, 3)</span>
+				</div>
+			</div>
+		</div>
+
+		<div id="game-over-banner">
+			<span class="go-stats">Game Over</span>
+			<span class="go-stats"><span class="go-label">Score:</span> <span id="final-score">0</span>/49</span>
+			<span class="go-stats"><span class="go-label">Left:</span> <span id="final-left">0</span></span>
+			<button id="btn-replay">Play Again</button>
+		</div>
+	</div>
+
+	<footer class="constrained">
+		Built by <a href="https://www.paypal.com/paypalme/nraw" target="_blank" rel="noopener">nraw</a>.
+		Thanks to <a href="https://boardgamegeek.com/thread/3668719/red7-solitaire" target="_blank"
+			rel="noopener">asutbone</a> for the variation
+		and the <a href="https://boardgamegeek.com/boardgame/161417/red7" target="_blank" rel="noopener">Red7</a> team for
+		the original game.
+	</footer>
+
+	<script>
+		(() => {
+			'use strict';
+
+			// --- Constants ---
+			const COLORS = ['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Indigo', 'Purple'];
+			const COLOR_ORDER = {Red: 7, Orange: 6, Yellow: 5, Green: 4, Blue: 3, Indigo: 2, Purple: 1};
+			const COLOR_CSS = {
+				Red: 'var(--red)', Orange: 'var(--orange)', Yellow: 'var(--yellow)',
+				Green: 'var(--green)', Blue: 'var(--blue)', Indigo: 'var(--indigo)', Purple: 'var(--purple)'
+			};
+
+			const RULE_TEXT = {
+				Red: 'RED: Highest card (auto-play)',
+				Orange: 'ORANGE: Same value as canvas card',
+				Yellow: 'YELLOW: Color shared with another card',
+				Green: 'GREEN: Even values only (2, 4, 6)',
+				Blue: 'BLUE: Unique color (no other card shares it)',
+				Indigo: 'INDIGO: Value within \u00b11 of canvas card',
+				Purple: 'PURPLE: Low values only (1, 2, 3)'
+			};
+
+			// --- State ---
+			let state = null;
+			let undoStack = [];
+			let animating = false;
+			let showHighlights = true;
+			let autoplaySingle = false;
+
+			// --- Helpers ---
+			function makeCard(color, value) {return {color, value};}
+
+			function cardCompare(a, b) {
+				if (a.value !== b.value) return a.value - b.value;
+				return COLOR_ORDER[a.color] - COLOR_ORDER[b.color];
+			}
+
+			function shuffle(arr) {
+				for (let i = arr.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[arr[i], arr[j]] = [arr[j], arr[i]];
+				}
+				return arr;
+			}
+
+			function buildDeck() {
+				const deck = [];
+				for (const c of COLORS) for (let v = 1; v <= 7; v++) deck.push(makeCard(c, v));
+				return shuffle(deck);
+			}
+
+			function cloneState(s) {
+				return {
+					columns: s.columns.map(col => col.map(c => ({...c}))),
+					canvas: s.canvas ? {...s.canvas} : null,
+					score: s.score
+				};
+			}
+
+			// --- Game Logic ---
+			function newGame() {
+				undoStack = [];
+				const deck = buildDeck();
+				const columns = [];
+				for (let i = 0; i < 7; i++) {
+					columns.push(deck.slice(i * 7, i * 7 + 7));
+				}
+				state = {columns, canvas: null, score: 0};
+				render();
+				scheduleAutoPlay();
+			}
+
+			function getBottomCards() {
+				return state.columns
+					.map((col, i) => col.length > 0 ? {card: col[col.length - 1], colIdx: i} : null)
+					.filter(Boolean);
+			}
+
+			function getActiveRule() {
+				return state.canvas ? state.canvas.color : 'Red';
+			}
+
+			function getPlayableCards() {
+				const rule = getActiveRule();
+				const bottoms = getBottomCards();
+				if (bottoms.length === 0) return [];
+
+				switch (rule) {
+					case 'Red': {
+						let best = bottoms[0];
+						for (let i = 1; i < bottoms.length; i++) {
+							if (cardCompare(bottoms[i].card, best.card) > 0) best = bottoms[i];
+						}
+						return [best];
+					}
+					case 'Orange': {
+						const cv = state.canvas.value;
+						return bottoms.filter(b => b.card.value === cv);
+					}
+					case 'Yellow': {
+						const colorCounts = {};
+						for (const b of bottoms) colorCounts[b.card.color] = (colorCounts[b.card.color] || 0) + 1;
+						return bottoms.filter(b => colorCounts[b.card.color] >= 2);
+					}
+					case 'Green': {
+						return bottoms.filter(b => b.card.value % 2 === 0);
+					}
+					case 'Blue': {
+						const colorCounts = {};
+						for (const b of bottoms) colorCounts[b.card.color] = (colorCounts[b.card.color] || 0) + 1;
+						return bottoms.filter(b => colorCounts[b.card.color] === 1);
+					}
+					case 'Indigo': {
+						const cv = state.canvas.value;
+						return bottoms.filter(b => Math.abs(b.card.value - cv) === 1);
+					}
+					case 'Purple': {
+						return bottoms.filter(b => b.card.value < 4);
+					}
+				}
+				return [];
+			}
+
+			function playCard(colIdx) {
+				if (animating) return;
+
+				const playable = getPlayableCards();
+				if (!playable.find(p => p.colIdx === colIdx)) return;
+
+				undoStack.push(cloneState(state));
+				const card = state.columns[colIdx].pop();
+				state.canvas = card;
+				state.score++;
+
+				animatePlay(colIdx);
+			}
+
+			function animatePlay(colIdx) {
+				animating = true;
+				const cardEl = document.querySelector(`.column[data-col="${colIdx}"] .card:last-child`);
+				if (cardEl) cardEl.classList.add('playing');
+
+				setTimeout(() => {
+					animating = false;
+					render();
+					checkGameOver();
+					scheduleAutoPlay();
+				}, 350);
+			}
+
+			function scheduleAutoPlay() {
+				const rule = getActiveRule();
+				const playable = getPlayableCards();
+				if (playable.length === 0) return;
+
+				const shouldAuto = rule === 'Red' || (autoplaySingle && playable.length === 1);
+				if (!shouldAuto) return;
+
+				animating = true;
+				setTimeout(() => {
+					animating = false;
+					playCard(playable[0].colIdx);
+				}, 500);
+			}
+
+			function undo() {
+				if (undoStack.length === 0 || animating) return;
+				state = undoStack.pop();
+				render();
+			}
+
+			function checkGameOver() {
+				const cardsLeft = state.columns.reduce((s, c) => s + c.length, 0);
+				if (cardsLeft === 0) {
+					showGameOver();
+					return;
+				}
+				const playable = getPlayableCards();
+				if (playable.length === 0) {
+					showGameOver();
+				}
+			}
+
+			function showGameOver() {
+				const cardsLeft = state.columns.reduce((s, c) => s + c.length, 0);
+				document.getElementById('final-score').textContent = state.score;
+				document.getElementById('final-left').textContent = cardsLeft;
+				document.getElementById('game-over-banner').classList.add('show');
+			}
+
+			function hideGameOver() {
+				document.getElementById('game-over-banner').classList.remove('show');
+			}
+
+			// --- Rendering ---
+			function getCSSVar(name) {
+				return parseInt(getComputedStyle(document.documentElement).getPropertyValue(name));
+			}
+
+			function render() {
+				const rule = getActiveRule();
+				const playable = getPlayableCards();
+				const playableSet = new Set(playable.map(p => p.colIdx));
+
+				// Rule banner
+				const banner = document.getElementById('rule-banner');
+				banner.textContent = RULE_TEXT[rule];
+				banner.style.background = COLOR_CSS[rule];
+
+				// Stats
+				const cardsLeft = state.columns.reduce((s, c) => s + c.length, 0);
+				document.getElementById('score').textContent = state.score;
+				document.getElementById('cards-left').textContent = cardsLeft;
+				document.getElementById('btn-undo').disabled = undoStack.length === 0;
+
+				// Columns
+				const colsEl = document.getElementById('columns');
+				colsEl.innerHTML = '';
+				const overlap = getCSSVar('--card-overlap');
+				const cardH = getCSSVar('--card-h');
+
+				for (let i = 0; i < 7; i++) {
+					const col = state.columns[i];
+					const colDiv = document.createElement('div');
+					colDiv.className = 'column';
+					colDiv.dataset.col = i;
+
+					const label = document.createElement('div');
+					label.className = 'column-label';
+					label.textContent = i + 1;
+					colDiv.appendChild(label);
+
+					const stack = document.createElement('div');
+					stack.className = 'card-stack';
+					const stackHeight = col.length > 0
+						? (col.length - 1) * overlap + cardH
+						: 0;
+					stack.style.height = stackHeight + 'px';
+
+					for (let j = 0; j < col.length; j++) {
+						const card = col[j];
+						const isBottom = j === col.length - 1;
+						const cardEl = document.createElement('div');
+						cardEl.className = 'card' + (isBottom ? ' bottom-card' : '');
+						cardEl.style.top = (j * overlap) + 'px';
+						cardEl.style.background = COLOR_CSS[card.color];
+						cardEl.innerHTML = `<span class="card-value">${card.value}</span><span class="color-label">${card.color}</span>`;
+
+						if (isBottom && playableSet.has(i)) {
+							if (showHighlights) cardEl.classList.add('playable');
+							cardEl.style.cursor = 'pointer';
+							cardEl.addEventListener('click', () => playCard(i));
+						}
+
+						stack.appendChild(cardEl);
+					}
+
+					colDiv.appendChild(stack);
+					colsEl.appendChild(colDiv);
+				}
+
+				// Canvas card
+				const canvasEl = document.getElementById('canvas-card');
+				if (state.canvas) {
+					canvasEl.style.background = COLOR_CSS[state.canvas.color];
+					canvasEl.innerHTML = `<span>${state.canvas.value}</span><span class="color-label">${state.canvas.color}</span>`;
+				} else {
+					canvasEl.style.background = COLOR_CSS['Red'];
+					canvasEl.innerHTML = `<span>~</span><span class="color-label">Red</span>`;
+				}
+			}
+
+			// --- Aide Drawer ---
+			const aideToggle = document.getElementById('aide-toggle');
+			const aideDrawer = document.getElementById('aide-drawer');
+			aideToggle.addEventListener('click', () => {
+				aideToggle.classList.toggle('open');
+				aideDrawer.classList.toggle('open');
+			});
+
+			// --- Settings ---
+			document.getElementById('btn-settings').addEventListener('click', () => {
+				document.getElementById('settings-panel').classList.toggle('open');
+			});
+			document.getElementById('chk-highlights').addEventListener('change', (e) => {
+				showHighlights = e.target.checked;
+				render();
+			});
+			document.getElementById('chk-autoplay-single').addEventListener('change', (e) => {
+				autoplaySingle = e.target.checked;
+				scheduleAutoPlay();
+			});
+
+			// --- Events ---
+			document.getElementById('btn-new').addEventListener('click', () => {hideGameOver(); newGame();});
+			document.getElementById('btn-undo').addEventListener('click', undo);
+			document.getElementById('btn-replay').addEventListener('click', () => {hideGameOver(); newGame();});
+
+			// --- PWA ---
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.register('sw.js').catch(() => { });
+			}
+
+			// --- Start ---
+			newGame();
+
+		})();
+	</script>
+</body>
+
+</html>
