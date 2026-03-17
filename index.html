@@ -30,7 +30,6 @@
 			--surface: #16213e;
 			--text: #eee;
 			--card-w: 56px;
-			--card-h: 80px;
 			--col-gap: 6px;
 			--card-overlap: 20px;
 		}
@@ -104,28 +103,24 @@
 		}
 
 		#columns-area {
-			overflow-x: auto;
-			-webkit-overflow-scrolling: touch;
 			padding: 12px 8px;
-			scrollbar-width: none;
-		}
-
-		#columns-area::-webkit-scrollbar {
-			display: none;
 		}
 
 		#columns {
 			display: flex;
 			gap: var(--col-gap);
 			justify-content: center;
-			min-width: min-content;
+		}
+
+		.column {
+			flex: 1;
+			min-width: 0;
 		}
 
 		.column {
 			display: flex;
 			flex-direction: column;
 			align-items: center;
-			min-width: var(--card-w);
 		}
 
 		.column-label {
@@ -136,13 +131,13 @@
 
 		.card-stack {
 			position: relative;
-			width: var(--card-w);
+			width: 100%;
 		}
 
 		.card {
 			position: absolute;
-			width: var(--card-w);
-			height: var(--card-h);
+			width: 100%;
+			aspect-ratio: 7 / 10;
 			border-radius: 8px;
 			display: flex;
 			flex-direction: column;
@@ -217,10 +212,15 @@
 		}
 
 		.constrained {
-			max-width: calc(7 * var(--card-w) + 6 * var(--col-gap) + 24px);
+			max-width: calc(7 * var(--card-w) + 6 * var(--col-gap) + 16px);
 			margin-left: auto;
 			margin-right: auto;
 			width: 100%;
+		}
+
+		#columns {
+			max-width: calc(7 * var(--card-w) + 6 * var(--col-gap));
+			margin: 0 auto;
 		}
 
 		#rule-banner {
@@ -438,7 +438,6 @@
 		@media (min-width: 500px) {
 			:root {
 				--card-w: 68px;
-				--card-h: 96px;
 				--col-gap: 8px;
 				--card-overlap: 24px;
 			}
@@ -464,7 +463,6 @@
 		@media (min-width: 768px) {
 			:root {
 				--card-w: 80px;
-				--card-h: 112px;
 				--col-gap: 12px;
 				--card-overlap: 28px;
 			}
@@ -520,7 +518,7 @@
 		</label>
 		<label>
 			Auto-play when single option
-			<input type="checkbox" id="chk-autoplay-single">
+			<input type="checkbox" id="chk-autoplay-single" checked>
 		</label>
 	</div>
 
@@ -536,10 +534,10 @@
 			<div id="canvas-card"></div>
 		</div>
 
-		<button id="aide-toggle">
+		<button id="aide-toggle" class="open">
 			Player Aide <span class="arrow">&#9660;</span>
 		</button>
-		<div id="aide-drawer">
+		<div id="aide-drawer" class="open">
 			<div id="aide-content">
 				<div class="aide-rule">
 					<span class="aide-color" style="color:var(--red)">Red</span>
@@ -615,7 +613,7 @@
 			let undoStack = [];
 			let animating = false;
 			let showHighlights = true;
-			let autoplaySingle = false;
+			let autoplaySingle = true;
 
 			// --- Helpers ---
 			function makeCard(color, value) {return {color, value};}
@@ -807,7 +805,6 @@
 				const colsEl = document.getElementById('columns');
 				colsEl.innerHTML = '';
 				const overlap = getCSSVar('--card-overlap');
-				const cardH = getCSSVar('--card-h');
 
 				for (let i = 0; i < 7; i++) {
 					const col = state.columns[i];
@@ -822,10 +819,6 @@
 
 					const stack = document.createElement('div');
 					stack.className = 'card-stack';
-					const stackHeight = col.length > 0
-						? (col.length - 1) * overlap + cardH
-						: 0;
-					stack.style.height = stackHeight + 'px';
 
 					for (let j = 0; j < col.length; j++) {
 						const card = col[j];
@@ -848,6 +841,16 @@
 					colDiv.appendChild(stack);
 					colsEl.appendChild(colDiv);
 				}
+
+				// Set stack heights after DOM insertion so card height is known
+				requestAnimationFrame(() => {
+					document.querySelectorAll('.card-stack').forEach(stack => {
+						const cards = stack.querySelectorAll('.card');
+						if (cards.length === 0) { stack.style.height = '0'; return; }
+						const cardH = cards[0].offsetHeight;
+						stack.style.height = ((cards.length - 1) * overlap + cardH) + 'px';
+					});
+				});
 
 				// Canvas card
 				const canvasEl = document.getElementById('canvas-card');
