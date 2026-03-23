@@ -628,6 +628,7 @@
 				padding: 12px 20px;
 			}
 		}
+		#update-toast { display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#e63946; color:#fff; padding:10px 20px; border-radius:8px; cursor:pointer; z-index:1000; font-size:14px; }
 	</style>
 </head>
 
@@ -1125,7 +1126,10 @@
 
 			// --- PWA ---
 			if ('serviceWorker' in navigator) {
-				navigator.serviceWorker.register('sw.js').catch(() => { });
+				navigator.serviceWorker.register('sw.js').catch(() => {});
+				navigator.serviceWorker.addEventListener('message', e => {
+					if (e.data?.type === 'updated') document.getElementById('update-toast').style.display = 'block';
+				});
 			}
 
 			// --- Start ---
@@ -1133,6 +1137,7 @@
 
 		})();
 	</script>
+	<div id="update-toast" onclick="location.reload()">Update available — tap to refresh</div>
 </body>
 
 </html>
